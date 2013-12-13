@@ -1,0 +1,20 @@
+{
+    "schema_version": "1.2",
+    "packages": [
+        {
+            "name": "BinaryPlist",
+            "description": "Automatically converts binary property lists to XML when opened and writes them back out to binary when saved.",
+            "author": "tyrone-sudeium",
+            "homepage": "http://blog.sudeium.com/2013/12/14/Binary-Plists-In-Sublime",
+            "last_modified": "2013-12-14 01:36:42",
+            "platforms": {
+                "osx": [
+                    {
+                        "version": "1.0.0",
+                        "url": "https://nodeload.github.com/tyrone-sudeium/binaryplist/zipball/master"
+                    }
+                ]
+            }
+        }
+    ]
+}
