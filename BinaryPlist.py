@@ -33,32 +33,81 @@ def keys_to_strings(data):
 class BinaryPlistCommand(EventListener):
   def on_load(self, view):
     # Check if binary, convert to XML, mark as "was binary"
+    print('on_load')
     if is_binary_plist(view):
       view.run_command('binary_plist_toggle')
-      if not is_syntax_set(view):
-        view.set_syntax_file(SYNTAX_FILE)
     
   def on_post_save(self, view):
+    print('on_post_save')
     # Convert back to XML
-    if view.settings().get('is_binary_plist'):
-      view.run_command('binary_plist_toggle', force_to=True)
+    if view.get_status('is_binary_plist'):
+      view.run_command('binary_plist_toggle', {'force_to':True})
+
+  def on_new(self, view):
+    pass
+    # print('on_new')
+
+  def on_clone(self, view):
+    pass
+    # print('on_clone')
+
+  def on_pre_close(self, view):
+    pass
+    # print('on_pre_close')
+
+  def on_close(self, view):
+    pass
+    # print('on_close')
+
+  def on_pre_save(self, view):
+    pass
+    # print('on_pre_save')
+
+  def on_modified(self, view):
+    freshly_written = view.settings().get('freshly_written')
+    if freshly_written and is_binary_plist(view):
+      view.run_command('binary_plist_toggle')
+      view.settings().erase('freshly_written')
+
+
+  def on_activated(self, view):
+    print('on_activated')
 
 class BinaryPlistToggleCommand(TextCommand):
   def to_xml_plist(self, edit, view):
+    """Reads in the view's file, converts it to XML and replaces the view's
+    buffer with the XML text."""
     file_name = view.file_name()
     if file_name and file_name != '' and os.path.isfile(file_name) == True:
       with open(file_name, 'rb') as fp:
         pl = plistlib.load(fp)
-        full_text = plistlib.dumps(pl).decode('utf-8')
-        view.set_encoding('UTF-8')
-        view.replace(edit, Region(0, view.size()), full_text)
-        view.sel().clear()
-        view.sel().add(sublime.Region(0))
-        view.end_edit(edit)
-        view.settings().set('is_binary_plist', True)
+      full_text = plistlib.dumps(pl).decode('utf-8')
+      view.set_encoding('UTF-8')
+      print("view.size()={0}".format(view.size()))
+      view.replace(edit, Region(0, view.size()), full_text)
+      view.end_edit(edit)
+      view.set_status('is_binary_plist', 'Saving As Binary Property List')
+      view.set_scratch(True)
 
-  def run(self, edit, **args):
-    if is_binary_plist(self.view) or args['force_to']:
+  def to_binary_plist(self, view):
+    """Converts the view's XML text back to a binary plist and writes it out
+    to the view's file."""
+    file_name = view.file_name()
+    if file_name and file_name != '' and os.path.isfile(file_name) == True:
+      bytes = view.substr(Region(0, view.size())).encode('utf-8')
+      try:
+        pl = plistlib.loads(bytes, fmt=plistlib.FMT_XML)
+        with open(file_name, 'wb') as fp:
+          plistlib.dump(pl, fp, fmt=plistlib.FMT_BINARY)
+          view.settings().set('freshly_written', True)
+      except Exception as e:
+        sublime.error_message(str(e))
+        raise e
+
+  def run(self, edit, force_to=False):
+    if is_binary_plist(self.view) and not force_to:
       self.to_xml_plist(edit, self.view)
+      if not is_syntax_set(self.view):
+        self.view.set_syntax_file(SYNTAX_FILE)
     else:
-      print("Not binary plist")
+      self.to_binary_plist(self.view)

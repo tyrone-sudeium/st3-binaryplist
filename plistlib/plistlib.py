@@ -974,7 +974,7 @@ def load(fp, *, fmt=None, use_builtin_types=True, dict_type=dict):
             raise InvalidFileException()
 
     else:
-        p = _FORMATS[fmt]['parser'](use_builtin_types=use_builtin_types)
+        p = _FORMATS[fmt]['parser'](use_builtin_types=use_builtin_types, dict_type=dict_type)
 
     return p.parse(fp)
 
