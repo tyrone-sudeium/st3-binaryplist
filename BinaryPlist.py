@@ -17,7 +17,7 @@ def is_syntax_set(view=None):
 
 def is_binary_plist(view):
   return (view.substr(Region(0,8)) == 'bplist00' or 
-    view.substr(Region(0,20)) == '6270 6c69 7374 3030')
+    view.substr(Region(0,19)) == '6270 6c69 7374 3030')
 
 def keys_to_strings(data):
   if isinstance(data, bytes):
@@ -33,12 +33,12 @@ def keys_to_strings(data):
 class BinaryPlistCommand(EventListener):
   def on_load(self, view):
     # Check if binary, convert to XML, mark as "was binary"
-    print('on_load')
+    # print('on_load')
     if is_binary_plist(view):
       view.run_command('binary_plist_toggle')
     
   def on_post_save(self, view):
-    print('on_post_save')
+    # print('on_post_save')
     # Convert back to XML
     if view.get_status('is_binary_plist'):
       view.run_command('binary_plist_toggle', {'force_to':True})
