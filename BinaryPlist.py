@@ -71,7 +71,8 @@ class BinaryPlistCommand(EventListener):
 
 
   def on_activated(self, view):
-    print('on_activated')
+    pass
+    # print('on_activated')
 
 class BinaryPlistToggleCommand(TextCommand):
   def to_xml_plist(self, edit, view):
@@ -83,7 +84,7 @@ class BinaryPlistToggleCommand(TextCommand):
         pl = plistlib.load(fp)
       full_text = plistlib.dumps(pl).decode('utf-8')
       view.set_encoding('UTF-8')
-      print("view.size()={0}".format(view.size()))
+      # print("view.size()={0}".format(view.size()))
       view.replace(edit, Region(0, view.size()), full_text)
       view.end_edit(edit)
       view.set_status('is_binary_plist', 'Saving As Binary Property List')
