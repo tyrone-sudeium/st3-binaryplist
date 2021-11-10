@@ -64,10 +64,8 @@ class BinaryPlistCommand(EventListener):
     # print('on_pre_save')
 
   def on_modified(self, view):
-    freshly_written = view.settings().get('freshly_written')
-    if freshly_written and is_binary_plist(view):
+    if is_binary_plist(view):
       view.run_command('binary_plist_toggle')
-      view.settings().erase('freshly_written')
 
 
   def on_activated(self, view):
@@ -100,7 +98,6 @@ class BinaryPlistToggleCommand(TextCommand):
         pl = plistlib.loads(bytes, fmt=plistlib.FMT_XML)
         with open(file_name, 'wb') as fp:
           plistlib.dump(pl, fp, fmt=plistlib.FMT_BINARY)
-          view.settings().set('freshly_written', True)
       except Exception as e:
         sublime.error_message(str(e))
         raise e
