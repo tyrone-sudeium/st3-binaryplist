@@ -587,6 +587,8 @@ class InvalidFileException (ValueError):
 
 _BINARY_FORMAT = {1: 'B', 2: 'H', 4: 'L', 8: 'Q'}
 
+_undefined = object()
+
 class _BinaryPlistParser:
     """
     Read or write a binary plist file, following the description of the binary
@@ -616,11 +618,9 @@ class _BinaryPlistParser:
                 offset_table_offset
             ) = struct.unpack('>6xBBQQQ', trailer)
             self._fp.seek(offset_table_offset)
-            offset_format = '>' + _BINARY_FORMAT[offset_size] * num_objects
-            self._ref_format = _BINARY_FORMAT[self._ref_size]
-            self._object_offsets = struct.unpack(
-                offset_format, self._fp.read(offset_size * num_objects))
-            return self._read_object(self._object_offsets[top_object])
+            self._object_offsets = self._read_ints(num_objects, offset_size)
+            self._objects = [_undefined] * num_objects
+            return self._read_object(top_object)
 
         except (OSError, IndexError, struct.error):
             raise InvalidFileException()
@@ -635,66 +635,78 @@ class _BinaryPlistParser:
 
         return tokenL
 
-    def _read_refs(self, n):
-        return struct.unpack(
-            '>' + self._ref_format * n, self._fp.read(n * self._ref_size))
+    def _read_ints(self, n, size):
+        data = self._fp.read(size * n)
+        if size in _BINARY_FORMAT:
+            return struct.unpack('>' + _BINARY_FORMAT[size] * n, data)
+        else:
+            return tuple(int.from_bytes(data[i: i + size], 'big')
+                         for i in range(0, size * n, size))
 
-    def _read_object(self, offset):
+    def _read_refs(self, n):
+        return self._read_ints(n, self._ref_size)
+
+    def _read_object(self, ref):
         """
-        read the object at offset.
+        read the object by reference.
 
         May recursively read sub-objects (content of an array/dict/set)
         """
+        result = self._objects[ref]
+        if result is not _undefined:
+            return result
+
+        offset = self._object_offsets[ref]
         self._fp.seek(offset)
         token = self._fp.read(1)[0]
         tokenH, tokenL = token & 0xF0, token & 0x0F
 
         if token == 0x00:
-            return None
+            result = None
 
         elif token == 0x08:
-            return False
+            result = False
 
         elif token == 0x09:
-            return True
+            result = True
 
         # The referenced source code also mentions URL (0x0c, 0x0d) and
         # UUID (0x0e), but neither can be generated using the Cocoa libraries.
 
         elif token == 0x0f:
-            return b''
+            result = b''
 
         elif tokenH == 0x10:  # int
-            return int.from_bytes(self._fp.read(1 << tokenL),
-                                  'big', signed=tokenL >= 3)
+            result = int.from_bytes(self._fp.read(1 << tokenL),
+                                    'big', signed=tokenL >= 3)
 
         elif token == 0x22: # real
-            return struct.unpack('>f', self._fp.read(4))[0]
+            result = struct.unpack('>f', self._fp.read(4))[0]
 
         elif token == 0x23: # real
-            return struct.unpack('>d', self._fp.read(8))[0]
+            result = struct.unpack('>d', self._fp.read(8))[0]
 
         elif token == 0x33:  # date
             f = struct.unpack('>d', self._fp.read(8))[0]
             # timestamp 0 of binary plists corresponds to 1/1/2001
             # (year of Mac OS X 10.0), instead of 1/1/1970.
-            return datetime.datetime.utcfromtimestamp(f + (31 * 365 + 8) * 86400)
+            result = datetime.datetime.utcfromtimestamp(f + (31 * 365 + 8) * 86400)
 
         elif tokenH == 0x40:  # data
             s = self._get_size(tokenL)
             if self._use_builtin_types:
-                return self._fp.read(s)
+                result = self._fp.read(s)
             else:
-                return Data(self._fp.read(s))
+                result = Data(self._fp.read(s))
 
         elif tokenH == 0x50:  # ascii string
             s = self._get_size(tokenL)
             result =  self._fp.read(s).decode('ascii')
-            return result
+            result = result
 
         elif tokenH == 0x60:  # unicode string
             s = self._get_size(tokenL)
-            return self._fp.read(s * 2).decode('utf-16be')
+            result = self._fp.read(s * 2).decode('utf-16be')
 
         # tokenH == 0x80 is documented as 'UID' and appears to be used for
         # keyed-archiving, not in plists.
@@ -702,8 +714,9 @@ class _BinaryPlistParser:
         elif tokenH == 0xA0:  # array
             s = self._get_size(tokenL)
             obj_refs = self._read_refs(s)
-            return [self._read_object(self._object_offsets[x])
-                for x in obj_refs]
+            result = []
+            self._objects[ref] = result
+            result.extend(self._read_object(x) for x in obj_refs)
 
         # tokenH == 0xB0 is documented as 'ordset', but is not actually
         # implemented in the Apple reference code.
@@ -716,12 +729,15 @@ class _BinaryPlistParser:
             key_refs = self._read_refs(s)
             obj_refs = self._read_refs(s)
             result = self._dict_type()
+            self._objects[ref] = result
             for k, o in zip(key_refs, obj_refs):
-                result[self._read_object(self._object_offsets[k])
-                    ] = self._read_object(self._object_offsets[o])
-            return result
+                result[self._read_object(k)] = self._read_object(o)
 
-        raise InvalidFileException()
+        else:
+            raise InvalidFileException()
+
+        self._objects[ref] = result
+        return result
 
 def _count_to_size(count):
     if count < 1 << 8:
@@ -735,6 +751,8 @@ def _count_to_size(count):
 
     else:
         return 8
+
+_scalars = (str, int, float, datetime.datetime, bytes)
 
 class _BinaryPlistWriter (object):
     def __init__(self, fp, sort_keys, skipkeys):
@@ -791,8 +809,7 @@ class _BinaryPlistWriter (object):
         # First check if the object is in the object table, not used for
         # containers to ensure that two subcontainers with the same contents
         # will be serialized as distinct values.
-        if isinstance(value, (
-                str, int, float, datetime.datetime, bytes, bytearray)):
+        if isinstance(value, _scalars):
             if (type(value), value) in self._objtable:
                 return
 
@@ -800,15 +817,17 @@ class _BinaryPlistWriter (object):
             if (type(value.data), value.data) in self._objtable:
                 return
 
+        elif id(value) in self._objidtable:
+            return
+
         # Add to objectreference map
         refnum = len(self._objlist)
         self._objlist.append(value)
-        try:
-            if isinstance(value, Data):
-                self._objtable[(type(value.data), value.data)] = refnum
-            else:
-                self._objtable[(type(value), value)] = refnum
-        except TypeError:
+        if isinstance(value, _scalars):
+            self._objtable[(type(value), value)] = refnum
+        elif isinstance(value, Data):
+            self._objtable[(type(value.data), value.data)] = refnum
+        else:
             self._objidtable[id(value)] = refnum
 
         # And finally recurse into containers
@@ -835,12 +854,11 @@ class _BinaryPlistWriter (object):
                 self._flatten(o)
 
     def _getrefnum(self, value):
-        try:
-            if isinstance(value, Data):
-                return self._objtable[(type(value.data), value.data)]
-            else:
-                return self._objtable[(type(value), value)]
-        except TypeError:
+        if isinstance(value, _scalars):
+            return self._objtable[(type(value), value)]
+        elif isinstance(value, Data):
+            return self._objtable[(type(value.data), value.data)]
+        else:
             return self._objidtable[id(value)]
 
     def _write_size(self, token, size):
@@ -876,18 +894,19 @@ class _BinaryPlistWriter (object):
                 try:
                     self._fp.write(struct.pack('>Bq', 0x13, value))
                 except struct.error:
-                    raise OverflowError(value)
+                    raise OverflowError(value) from None
             elif value < 1 << 8:
                 self._fp.write(struct.pack('>BB', 0x10, value))
             elif value < 1 << 16:
                 self._fp.write(struct.pack('>BH', 0x11, value))
             elif value < 1 << 32:
                 self._fp.write(struct.pack('>BL', 0x12, value))
+            elif value < 1 << 63:
+                self._fp.write(struct.pack('>BQ', 0x13, value))
+            elif value < 1 << 64:
+                self._fp.write(b'\x14' + value.to_bytes(16, 'big', signed=True))
             else:
-                try:
-                    self._fp.write(struct.pack('>BQ', 0x13, value))
-                except struct.error:
-                    raise OverflowError(value)
+                raise OverflowError(value)
 
         elif isinstance(value, float):
             self._fp.write(struct.pack('>Bd', 0x23, value))
@@ -976,18 +995,16 @@ def load(fp, *, fmt=None, use_builtin_types=True, dict_type=dict):
         fp.seek(0)
         for info in _FORMATS.values():
             if info['detect'](header):
-                p = info['parser'](
-                    use_builtin_types=use_builtin_types,
-                    dict_type=dict_type,
-                )
+                P = info['parser']
                 break
 
         else:
             raise InvalidFileException()
 
     else:
-        p = _FORMATS[fmt]['parser'](use_builtin_types=use_builtin_types, dict_type=dict_type)
+        P = _FORMATS[fmt]['parser']
 
+    p = P(use_builtin_types=use_builtin_types, dict_type=dict_type)
     return p.parse(fp)
 
 
