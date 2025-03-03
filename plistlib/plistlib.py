@@ -295,10 +295,7 @@ def _date_to_string(d):
     )
 
 def _escape(text):
-    m = _controlCharPat.search(text)
-    if m is not None:
-        raise ValueError("strings can't contains control characters; "
-                         "use bytes instead")
+    text = _controlCharPat.sub("�", text)
     text = text.replace("\r\n", "\n")       # convert DOS line endings
     text = text.replace("\r", "\n")         # convert Mac line endings
     text = text.replace("&", "&amp;")       # escape '&'

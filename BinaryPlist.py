@@ -81,6 +81,8 @@ class BinaryPlistToggleCommand(TextCommand):
       with open(file_name, 'rb') as fp:
         pl = plistlib.load(fp)
       full_text = plistlib.dumps(pl).decode('utf-8')
+      if "�" in full_text:
+        sublime.message_dialog("This file contains “�” characters, likely due to control characters in strings.\n\nIf you save the file, these replacement characters will remain.")
       # print("view.size()={0}".format(view.size()))
       view.replace(edit, Region(0, view.size()), full_text)
       view.end_edit(edit)
