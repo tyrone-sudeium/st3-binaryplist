@@ -1,7 +1,7 @@
 BinaryPlist
 ===========
 
-This is my take at a plist plugin for Sublime Text 3 that should make working 
+This is my take at a plist plugin for Sublime Text 4 that should make working 
 with plists feel a lot more first-class.  It provides:
 
 * Automatic conversion of binary plist to XML.  You can then edit the XML file
@@ -10,11 +10,8 @@ with plists feel a lot more first-class.  It provides:
   command line, no foreign-function shenanigans, just 100% python goodness.
 * Plist syntax highlighting from [TextMate][1].
 
-The python plist support is taken from the [Python 3.4 standard library][2], 
-with a few modifications to support running in the Python 3.3 that ships with
-Sublime Text 3.  This library therefore has a heavy dependency on Python 3.x
-which is why it'll probably never work with Sublime Text 2.  Seriously, just
-use Sublime Text 3+, it's awesome.
+The python plist support is taken from the [Python 3.14 standard library][2], 
+matching the Python 3.14 that ships with Sublime Text 4 build 4205 (2026-Apr-23).
 
 Why?
 =========
@@ -42,7 +39,18 @@ believe this plugin improves on that one in a few key ways:
    sometimes still see.
 
 [1]: https://github.com/textmate/property-list.tmbundle/tree/textmate-1.x
-[2]: https://github.com/python/cpython/blob/v3.4.10/Lib/plistlib.py
+[2]: https://github.com/python/cpython/blob/v3.14.8/Lib/plistlib.py
 [3]: https://www.sublimetext.com
 [4]: https://packagecontrol.io/
 [5]: https://github.com/relikd/Plist-Binary_sublime
+
+### Features
+  - round-trip of control chars like Backspace  `\x08` by quoting their symbolic representation `␈` in PUA Unicode chars (≝`󿿾␈󿿿` or `uFFFFE` `uFFFFF`, user-configurable)
+    - ⚠data loss: arbitrary escaping is NOT supported, so if the source document contains the same escaped control chars used to escape actual control chars, those will be unescaped on save
+  - supports `UID`s with two configurable escape schemes
+    - `<dict><key>CF$UID</key><integer>123</integer></dict>` "dict-escaped" (standard Apple)
+    - `<integer>٠123</integer>` shorter and nicer "prefix-escaped"
+
+### Configure
+
+  - run `Preferences: BinaryPlist Settings: Default+User` command to open default and user `BinaryPlist.sublime-settings` for a list of available settings, including seting custom control escape characters, indentation and newline density…

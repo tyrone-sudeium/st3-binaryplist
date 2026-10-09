@@ -1,0 +1,22 @@
+# Do not include the following content from *.sublime-package files
+
+# Git & Github
+.github/      	export-ignore
+.gitattributes	export-ignore
+.gitignore    	export-ignore
+
+# Documentation
+doc/           	export-ignore
+sample/        	export-ignore
+Contributing.md	export-ignore
+ToDo.md        	export-ignore
+
+# Tests
+test/    	export-ignore
+\[test\]/	export-ignore
+
+# Settings
+.editorconfig	export-ignore
+
+# Source files
+src/     export-ignore

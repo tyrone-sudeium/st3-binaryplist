@@ -1,0 +1,20 @@
+{
+//Character to quote-escape control chars, for example, Backspace  will be escaped as 󿿾␈󿿿   (pre␈pos)
+  // Use Python Unicode escape notation
+  // ⚠data loss: if the source document contains the same escaped control chars used to escape actual control chars, for example:
+  // • Backspace  is escaped as 󿿾␈󿿿, but this escaped form was already present
+  // Saving the file will convert 󿿾␈󿿿 back to Backspace  even if nothing was escaped, leading to a data loss
+  // (you'll get a dialog warning unless suppressed with 'warn_dupe', and a comment warning at the bottom of the document)
+// "esc_pre":"\\U000FFFFE", //prefix  character to quote-escape control chars
+// "esc_pos":"\\U000FFFFF", //postfix character …
+// Nicer-looking, but more error-prone alternatives: ⸂⎀⸃  ⸄⎀⸅  ⸜⎀⸝  ‹⎀›  ❴⎀❵  ❲⎀❳  ❰⎀❱ ⹙⎀⹚ ⹛⎀⹜ ⸢⎀⸣ ⁽⎀⁾ ⟅⎀⟆
+
+// "indent"      :"  " ,//≝'\t' or use '  ' for spaces
+// "key_val_sep" :""   ,//≝''   denser view with key/value in 1 line, or use newline '\n'
+// "max_line_len": 120,//≝120
+
+// "uidict": true,//≝true escape UIDs as dictionaries with 'CF$UID' key (Apple's default method) or inject a 'q_uid' prefix quote into the integer field itself
+// "q_uid" :"٠"  ,//≝٠  if 'uidict' is false.  alt numeric: ۰𑛀𑁦𑇐 𖭐 🯰 𝟶 𝟘 ႕ 𑶡 ୮ 𑄺 ૪ ୪ ౪ ൧ ൫ ௫    str: 🆔 (errors syntax highlights)
+
+// "warn_dupe":true, // Show a warning dialog window if the source document contains the same escaped control chars used to escape actual control chars
+}

@@ -1,0 +1,11 @@
+[
+{"caption":"BinaryPlist: Changelog"                                	,"command":"open_file"	,"args":{"file":"${packages}/BinaryPlist/Changelog.md"}},
+{"caption":"Preferences: BinaryPlist Settings: User"               	,"command":"open_file"	,"args":{"file":"${packages}/User/BinaryPlist.sublime-settings",}},
+{"caption":"Preferences: BinaryPlist Settings: Default+User tabbed"	,"command":"chain"    	,"args":{"commands":[
+  {"command":"open_file","args":{"file":"${packages}/BinaryPlist/BinaryPlist.sublime-settings"}},
+  {"command":"open_file","args":{"file":"${packages}/User/BinaryPlist.sublime-settings"}},]}},
+{"caption":"Preferences: BinaryPlist Settings: Default+User side-by-side"	,"command": "edit_settings"	,"args":{
+  "base_file":"${packages}/BinaryPlist/BinaryPlist.sublime-settings",
+  "user_file":"${packages}/User/BinaryPlist.sublime-settings",
+  "default"  :"{\n//Quotes to escape control chars\n//\"pre\":\"$0\" //≝\\U000FFFFE left  quote\n//\"pos\":\"$0\" //≝\\U000FFFFF right quote\n}\n"}},
+]
